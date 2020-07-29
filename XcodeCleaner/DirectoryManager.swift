@@ -37,8 +37,18 @@ struct DirectoryManager {
     }
     func getArchivesPath() -> String {
         let xcodePath = getXcodeDefaultPath()
-        let deviceSupportPath = "Archives/"
-        return "\(xcodePath + deviceSupportPath)"
+        let archivesPath = "Archives/"
+        return "\(xcodePath + archivesPath)"
+    }
+    func getIOSDeviceLogsPath() -> String {
+        let xcodePath = getXcodeDefaultPath()
+        let iOSDeviceLogsPath = "iOS Device Logs/"
+        return "\(xcodePath + iOSDeviceLogsPath)"
+    }
+    func getDocumentationCachePath() -> String {
+        let xcodePath = getXcodeDefaultPath()
+        let documentationCachePath = "DocumentationCache/"
+        return "\(xcodePath + documentationCachePath)"
     }
     func getSubDirectoriesForPath(path: String) -> [String] {
         let fileManager = FileManager.default
@@ -57,48 +67,94 @@ struct DirectoryManager {
         
         return subDirectories
     }
-    func getDirectorySize(path: String, completion: @escaping () -> Void = { }) -> Int64 {
+    func getFileType(path: String) -> FileType? {
+        let fileManager = FileManager.default        
+        var isDirectory: ObjCBool = false
+        
+        if fileManager.fileExists(atPath: path, isDirectory: &isDirectory) {
+            if isDirectory.boolValue {
+                return .directory
+            } else {
+                return .file
+            }
+        }
+        return nil
+    }
+    func getSize(path: String, completion: @escaping () -> Void = { }) -> Int64 {
         let fileManager = FileManager.default
         var directorySize: Int64 = 0
         
-        let directories = fileManager.subpaths(atPath: path)
-        guard directories != nil else {
-            completion()
-            return 0 
+        var normalizedPath: String
+        let fileType = getFileType(path: path)
+        
+        switch fileType {
+        case .directory:
+            normalizedPath = normalizePathForDirectory(path: path)
+        case .file:
+            normalizedPath = normalizePathForFile(path: path)
+        case .none:
+            return 0
         }
         
-        for directory in directories! {
+        if fileType == .file {
             do {
-                let attributes = try fileManager.attributesOfItem(atPath: path + directory)
+                let attributes = try fileManager.attributesOfItem(atPath: normalizedPath)
                 directorySize += attributes[FileAttributeKey.size] as! Int64
             } catch {
                 print(error.localizedDescription)
             }
+        } else {
+            let directories = fileManager.subpaths(atPath: normalizedPath)
+            
+            for directory in directories! {
+                do {
+                    let newPath = normalizedPath + directory
+                    let attributes = try fileManager.attributesOfItem(atPath: newPath)
+                    directorySize += attributes[FileAttributeKey.size] as! Int64
+                } catch {
+                    print(error.localizedDescription)
+                }
+            }
         }
         completion()
-        
         return directorySize
     }
-    func normalizeDirectoryPath(directory: String) -> String {
-        var newDirectoryPath = directory
-        
-        if !newDirectoryPath.hasSuffix("/") {
-            newDirectoryPath += "/"
-        }
-        return newDirectoryPath
-    }
-    func normalizeDirectoryPathForDisplay(directory: String, forType type: DirectoryType) -> String {
-        var result = directory
-        var prefix: String
+    func getPath(for type: DirectoryType) -> String {
+        var path: String
         
         switch type {
         case .derivedData:
-            prefix = getDerivedDataPath()
+            path = getDerivedDataPath()
         case .deviceSupport:
-            prefix = getDeviceSupportPath()
+            path = getDeviceSupportPath()
         case .archives:
-            prefix = getArchivesPath()
+            path = getArchivesPath()
+        case .iOSDeviceLogs:
+            path = getIOSDeviceLogsPath()
+        case .documentationCache:
+            path = getDocumentationCachePath()
         }
+        return path
+    }
+    func normalizePathForDirectory(path: String) -> String {
+        var newPath = path
+        
+        if !newPath.hasSuffix("/") {
+            newPath += "/"
+        }
+        return newPath
+    }
+    func normalizePathForFile(path: String) -> String {
+        var newPath = path
+        
+        if newPath.hasSuffix("/") {
+            newPath.removeLast()
+        }
+        return newPath
+    }
+    func normalizePathForDisplay(directory: String, forType type: DirectoryType) -> String {
+        var result = directory
+        let prefix: String = getPath(for: type)
         
         if directory.contains(prefix) {
             result = directory.replacingOccurrences(of: prefix, with: "")
@@ -108,18 +164,8 @@ struct DirectoryManager {
     }
     func cleanDirectory(forType type: DirectoryType) {
         let fileManager = FileManager.default
-        
-        var directoryPath: String
-        switch type {
-        case .derivedData:
-            directoryPath = getDerivedDataPath()
-        case .deviceSupport:
-            directoryPath = getDeviceSupportPath()
-        case .archives:
-            directoryPath = getArchivesPath()
-        }
-        
-        let directoryURL = URL(fileURLWithPath: normalizeDirectoryPath(directory: directoryPath))
+        let directoryPath = getPath(for: type)
+        let directoryURL = URL(fileURLWithPath: normalizePathForDirectory(path: directoryPath))
         
         do {
             try fileManager.removeItem(at: directoryURL)

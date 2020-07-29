@@ -6,9 +6,12 @@
 </p>
 
 ## Installation
-To install Xcode Cleaner, go to [releases](https://github.com/IrelDev/XcodeCleaner/releases) page and download the `Xcode Cleaner.app` you need. If you prefer to build the project yourself just clone the `master` branch.
+To install Xcode Cleaner go to [releases](https://github.com/IrelDev/XcodeCleaner/releases) page and download the `Xcode Cleaner.app` you need. If you prefer to build the project yourself just clone the `master` branch.
 
 ## Demo
 <p align="center">  
 <img src = "Assets/Demo.gif" /><br>
 </p>
+
+## License
+XcodeCleaner is available under the MIT license, see the [LICENSE](LICENSE) file for more information.
